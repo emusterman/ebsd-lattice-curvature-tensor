@@ -128,17 +128,17 @@ def curvature_tensor(x,
         print(f'\t{window} μm window for calculating curvature.')
         print(f'''\t{k_max}°/μm maximum allowable curvature. 
                 Higher values considered error and ignored.''')
-        print(f'\tReporting {con_int * 100}% confidence index.')
+        print(f'\tReporting {con_int * 100}% confidence interval.')
 
     # Calculating curvature tensor components for every pixel
     # based on nearest neighbors and curvature regressions
     nan = float('NaN')
     points = np.array([x, y]).T
     tree = KDTree(points)
-    k_map, std_map = [], []
+    k_map, ci_map = [], []
     meta = {'Window':window,
             'k_max':k_max,
-            'Confidence Index':con_int,
+            'Confidence Interval':con_int,
             'IQ':IQ,
             'CI':CI,
             'FIT':FIT}
@@ -146,8 +146,8 @@ def curvature_tensor(x,
     for j in range(len(g)):
         # Cuvature components
         k11, k12, k13, k21, k22, k23, k31, k32, k33 = (nan,) * 9
-        # Standard error of slope fits
-        std11, std21, std31, std12, std22, std32 = (nan,) * 6
+        # Confidence interval of slope fits
+        ci11, ci21, ci31, ci12, ci22, ci32 = (nan,) * 6
         
         if ((IQ == None or norm_iq[j] > IQ) and
             (CI == None or ci[j] > CI) and
@@ -204,31 +204,31 @@ def curvature_tensor(x,
             # Slope fits and confidence interval calculations
             if len(np.unique(yi[mask1])) > 1:
                 k11, bi, r11, pi, se = linregress(yi[mask1], w1i[mask1])
-                std11 = se * t.ppf((1 + con_int) / 2, np.sum(mask1) - 2)
+                ci11 = se * t.ppf((1 + con_int) / 2, np.sum(mask1) - 2)
             if len(np.unique(yi[mask2])) > 1:
                 k21, bi, r21, pi, se = linregress(yi[mask2], w2i[mask2])
-                std21 = se * t.ppf((1 + con_int) / 2, np.sum(mask2) - 2)
+                ci21 = se * t.ppf((1 + con_int) / 2, np.sum(mask2) - 2)
             if len(np.unique(yi[mask3])) > 1:
                 k31, bi, r31, pi, se = linregress(yi[mask3], w3i[mask3])
-                std31 = se * t.ppf((1 + con_int) / 2, np.sum(mask3) - 2)
+                ci31 = se * t.ppf((1 + con_int) / 2, np.sum(mask3) - 2)
             if len(np.unique(xi[mask1])) > 1:
                 k12, bi, r12, pi, se = linregress(xi[mask1], w1i[mask1])
-                std12 = se * t.ppf((1 + con_int) / 2,np.sum(mask1) - 2)
+                ci12 = se * t.ppf((1 + con_int) / 2,np.sum(mask1) - 2)
             if len(np.unique(xi[mask2])) > 1:
                 k22, bi, r22, pi, se = linregress(xi[mask2], w2i[mask2])
-                std22 = se * t.ppf((1 + con_int) / 2, np.sum(mask2) - 2)
+                ci22 = se * t.ppf((1 + con_int) / 2, np.sum(mask2) - 2)
             if len(np.unique(xi[mask3])) > 1:
                 k32, bi, r32, pi, se = linregress(xi[mask3], w3i[mask3])
-                std32 = se * t.ppf((1 + con_int) / 2, np.sum(mask3) - 2)
+                ci32 = se * t.ppf((1 + con_int) / 2, np.sum(mask3) - 2)
         
         k = np.array(([k11, k12, k13], [k21, k22, k23], [k31, k32, k33]))
-        std = np.array([std11, std21, std31, std12, std22, std32])
-        std[std == np.inf] = nan
-        std_map.append(std)
+        ci_vect = np.array([ci11, ci21, ci31, ci12, ci22, ci32])
+        ci_vect[ci_vect == np.inf] = nan
+        ci_map.append(ci_vect)
         k_map.append(k)
 
     k_map = np.asarray(k_map)
-    std_map = np.asarray(std_map)
+    con_int_map = np.asarray(ci_map)
 
     # Convert to degrees
     k11 = k_map[:, 0, 0] * (180 / np.pi)
@@ -239,4 +239,4 @@ def curvature_tensor(x,
     k32 = k_map[:, 2, 1] * (180 / np.pi)
     k_map = np.asarray([k11, k21, k31, k12, k22, k32]).T
 
-    return k_map, std_map, meta
+    return k_map, con_int_map, meta
